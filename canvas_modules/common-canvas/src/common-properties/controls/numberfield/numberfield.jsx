@@ -23,7 +23,7 @@ import * as ControlUtils from "./../../util/control-utils";
 import { formatMessage } from "./../../util/property-utils";
 import { STATES, MESSAGE_KEYS } from "./../../constants/constants.js";
 import classNames from "classnames";
-import { ControlType } from "./../../constants/form-constants";
+import { ControlType, Type } from "./../../constants/form-constants"; // Type is used to check whether the field is declared as integer or long
 // Carbon icons - direct imports for tree-shaking optimization
 import Shuffle from "@carbon/icons-react/lib/Shuffle";
 import { has } from "lodash";
@@ -103,11 +103,24 @@ class NumberfieldControl extends React.Component {
 		if (typeof actualValue === "undefined" || actualValue === null || actualValue === "") {
 			this.props.controller.updatePropertyValue(this.props.propertyId, null);
 		} else {
+			// If the field is declared as integer or long, reject any value that contains a decimal.
+			// Number.isInteger returns false for values like 4.4 even though they are finite numbers,
+			// so this catches the case the badInput/isFinite check above cannot.
+			const isIntegerType = this.props.control.valueDef &&
+				(this.props.control.valueDef.propType === Type.INTEGER ||
+				this.props.control.valueDef.propType === Type.LONG);
+			if (isIntegerType && !Number.isInteger(Number(actualValue))) {
+				this.showIntegerError();
+				return;
+			}
+			// Value is valid for the declared type — clear any prior integer error and store it
+			this.clearIntegerError();
 			this.props.controller.updatePropertyValue(this.props.propertyId, Number(actualValue));
 		}
-		// TODO need to check for integer in validations
 	}
 
+	// Shows an error when the user enters a value that is not a parseable number at all (e.g. "abc").
+	// This path is taken when the browser signals badInput or the value is not finite.
 	showInvalidNumberError() {
 		if (this.props.controller.getErrorMessage(this.props.propertyId) === null) {
 			const errorMessage = {
@@ -121,6 +134,7 @@ class NumberfieldControl extends React.Component {
 		this.setState({ invalidNumber: true });
 	}
 
+	// Clears the invalid number error if it was previously set by showInvalidNumberError.
 	clearInvalidNumberError() {
 		if (this.state.invalidNumber) {
 			this.setState({ invalidNumber: false });
@@ -129,6 +143,28 @@ class NumberfieldControl extends React.Component {
 		const invalidNumberError = this.props.controller.getErrorMessage(this.props.propertyId) &&
 		this.props.controller.getErrorMessage(this.props.propertyId).validation_id === "invalid_number";
 		if (invalidNumberError) {
+			this.props.controller.updateErrorMessage(this.props.propertyId, null);
+		}
+	}
+
+	// Shows an error when a decimal is entered into a field declared as type integer or long.
+	showIntegerError() {
+		if (this.props.controller.getErrorMessage(this.props.propertyId) === null) {
+			const errorMessage = {
+				type: "error",
+				text: formatMessage(this.reactIntl, MESSAGE_KEYS.INVALID_INTEGER_ERROR),
+				propertyId: this.props.propertyId,
+				validation_id: "invalid_integer"
+			};
+			this.props.controller.updateErrorMessage(this.props.propertyId, errorMessage);
+		}
+	}
+
+	// Clears the integer error if it was previously set by showIntegerError.
+	clearIntegerError() {
+		const integerError = this.props.controller.getErrorMessage(this.props.propertyId) &&
+			this.props.controller.getErrorMessage(this.props.propertyId).validation_id === "invalid_integer";
+		if (integerError) {
 			this.props.controller.updateErrorMessage(this.props.propertyId, null);
 		}
 	}

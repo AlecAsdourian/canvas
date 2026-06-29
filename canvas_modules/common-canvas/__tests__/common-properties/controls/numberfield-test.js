@@ -229,12 +229,39 @@ describe("numberfield control works correctly", () => {
 		fireEvent.change(integerNumber, { target: { value: "" } });
 		expect(controller.getPropertyValue(numPropertyId)).to.equal(null);
 	});
-	// TODO this should throw an error instead
-	it("should not allow a double value to be set in an integer field", () => {
+	// Entering a decimal into an integer field should show an error and not update the stored value
+	it("should show an error when a double value is entered in an integer field", () => {
 		const numPropertyId = { name: "number_int" };
 		const integerNumber = wrapper.container.querySelector("div[data-id='properties-number_int'] input");
 		fireEvent.change(integerNumber, { target: { value: "4.4" } });
+		// Value should not have been stored — controller retains its previous value
+		expect(controller.getPropertyValue(numPropertyId)).to.equal(10);
+		// An error message with validation_id "invalid_integer" should be set
+		const errorMsg = controller.getErrorMessage(numPropertyId);
+		expect(errorMsg).to.not.be.null;
+		expect(errorMsg.validation_id).to.equal("invalid_integer");
+		expect(errorMsg.type).to.equal("error");
+	});
+	it("should clear the integer error when a valid integer is entered after a decimal", () => {
+		const numPropertyId = { name: "number_int" };
+		const integerNumber = wrapper.container.querySelector("div[data-id='properties-number_int'] input");
+		// First trigger the integer error
+		fireEvent.change(integerNumber, { target: { value: "4.4" } });
+		expect(controller.getErrorMessage(numPropertyId)).to.not.be.null;
+		// Then enter a valid integer — error should be cleared and value stored
+		fireEvent.change(integerNumber, { target: { value: "7" } });
+		expect(controller.getPropertyValue(numPropertyId)).to.equal(7);
+		const errorMsg = controller.getErrorMessage(numPropertyId);
+		expect(errorMsg).to.be.null;
+	});
+	it("should allow a double value in a double field without showing an error", () => {
+		const numPropertyId = { name: "number_dbl" };
+		const doubleNumber = wrapper.container.querySelector("div[data-id='properties-number_dbl'] input");
+		fireEvent.change(doubleNumber, { target: { value: "4.4" } });
+		// Double fields accept decimals — value should be stored and no integer error set
 		expect(controller.getPropertyValue(numPropertyId)).to.equal(4.4);
+		const errorMsg = controller.getErrorMessage(numPropertyId);
+		expect(errorMsg).to.be.null;
 	});
 	it("should render an double number correctly", () => {
 		const numPropertyId = { name: "number_dbl" };
